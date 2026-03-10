@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的私人音樂盒</title>
+    
+    <!-- 桌面圖示設定 (圖四美化) -->
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3844/3844720.png">
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/3844/3844720.png">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="私人音樂盒">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+            color: white;
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(15px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        #playlist::-webkit-scrollbar { width: 4px; }
+        #playlist::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+        input[type="range"] { accent-color: #a855f7; }
+        .btn-active:active { transform: scale(0.95); }
+        .neon-border { box-shadow: 0 0 15px rgba(168, 85, 247, 0.2); }
+        
+        /* 定時器動畫 */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .timer-active { animation: pulse 2s infinite; color: #f87171; }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+    <div class="glass-card w-full max-w-md p-8 shadow-2xl neon-border">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-purple-400 tracking-tight">私人音樂盒</h1>
+            <!-- 定時按鈕 -->
+            <button id="timerBtn" class="p-2 hover:bg-white/10 rounded-full transition-colors relative">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span id="timerBadge" class="hidden absolute -top-1 -right-1 bg-red-500 text-[10px] w-4 h-4 rounded-full flex items-center justify-center">!</span>
+            </button>
+        </div>
+        
+        <div class="mb-6">
+            <!-- 修改點：優化 input 屬性以嘗試直接開啟檔案管理員 -->
+            <div id="dropZone" class="border-2 border-dashed border-purple-500/30 rounded-2xl p-6 text-center hover:border-purple-500 transition-colors cursor-pointer bg-purple-500/5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-3 text-purple-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p class="text-sm font-medium text-gray-300">一步到位選取音樂</p>
+                <!-- capture="fallback" 是一種暗示 Android 優先使用檔案系統的手法 -->
+                <input type="file" id="fileInput" multiple accept="audio/*" style="display: none;">
+            </div>
+        </div>
+
+        <!-- 定時設定面板 (預設隱藏) -->
+        <div id="timerPanel" class="hidden mb-6 p-4 bg-black/20 rounded-2xl border border-white/5">
+            <p class="text-xs text-gray-400 mb-3 text-center">設定自動關機時間</p>
+            <div class="grid grid-cols-4 gap-2">
+                <button onclick="setTimer(15)" class="bg-white/5 hover:bg-purple-500/20 py-2 rounded-lg text-xs">15分</button>
+                <button onclick="setTimer(30)" class="bg-white/5 hover:bg-purple-500/20 py-2 rounded-lg text-xs">30分</button>
+                <button onclick="setTimer(60)" class="bg-white/5 hover:bg-purple-500/20 py-2 rounded-lg text-xs">60分</button>
+                <button onclick="setTimer(0)" class="bg-red-500/20 hover:bg-red-500/40 py-2 rounded-lg text-xs">取消</button>
+            </div>
+            <p id="timerStatus" class="text-[10px] mt-3 text-center text-purple-400 hidden font-mono"></p>
+        </div>
+
+        <div id="playerUI" class="text-center">
+            <div id="disk" class="relative w-32 h-32 mx-auto mb-6 bg-purple-900/30 rounded-full flex items-center justify-center border-4 border-purple-500/20 shadow-inner overflow-hidden">
+                <!-- 這裡可以放預設封面圖 -->
+                <img src="https://cdn-icons-png.flaticon.com/512/3844/3844720.png" class="w-full h-full object-cover opacity-20 absolute" alt="">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-purple-500 relative z-10" id="musicIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+            </div>
+            
+            <div id="currentTrackName" class="text-lg font-bold mb-4 truncate px-2 text-gray-100">準備就緒</div>
+            
+            <input type="range" id="progressBar" value="0" step="0.1" class="w-full h-1.5 mb-2 rounded-lg cursor-pointer bg-gray-700 appearance-none">
+            <div class="flex justify-between text-xs font-mono text-gray-500 mb-6">
+                <span id="currentTime">00:00</span>
+                <span id="duration">00:00</span>
+            </div>
+
+            <div class="flex items-center justify-evenly mb-6">
+                <button id="prevBtn" class="text-gray-400 hover:text-white btn-active">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                </button>
+                <button id="playBtn" class="bg-purple-500 text-white p-4 rounded-full shadow-lg hover:bg-purple-600 btn-active">
+                    <svg id="playIcon" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                    <svg id="pauseIcon" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+                </button>
+                <button id="nextBtn" class="text-gray-400 hover:text-white btn-active">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="playlistContainer" class="mt-4 pt-4 border-t border-white/10 hidden">
+            <ul id="playlist" class="max-h-40 overflow-y-auto space-y-1"></ul>
+        </div>
+
+        <audio id="audioElement" class="hidden"></audio>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const playlist = document.getElementById('playlist');
+        const playlistContainer = document.getElementById('playlistContainer');
+        const audio = document.getElementById('audioElement');
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const currentTrackName = document.getElementById('currentTrackName');
+        const progressBar = document.getElementById('progressBar');
+        const currentTimeEl = document.getElementById('currentTime');
+        const durationEl = document.getElementById('duration');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const musicIcon = document.getElementById('musicIcon');
+        const timerBtn = document.getElementById('timerBtn');
+        const timerPanel = document.getElementById('timerPanel');
+        const timerStatus = document.getElementById('timerStatus');
+        const timerBadge = document.getElementById('timerBadge');
+
+        let tracks = [];
+        let currentIndex = 0;
+        let sleepTimer = null;
+        let remainingSeconds = 0;
+
+        // 點擊區域觸發
+        dropZone.onclick = () => fileInput.click();
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            tracks = files.filter(f => f.type.startsWith('audio/') || f.name.match(/\.(mp3|m4a|wav)$/i));
+            
+            playlist.innerHTML = '';
+            playlistContainer.classList.toggle('hidden', tracks.length === 0);
+
+            tracks.forEach((track, index) => {
+                const li = document.createElement('li');
+                li.className = "cursor-pointer hover:bg-white/10 p-2 text-xs text-gray-400 truncate rounded-lg";
+                li.textContent = `${index + 1}. ${track.name.replace(/\.[^/.]+$/, "")}`;
+                li.onclick = () => loadTrack(index);
+                playlist.appendChild(li);
+            });
+            if (tracks.length > 0) loadTrack(0);
+        });
+
+        function loadTrack(index) {
+            currentIndex = index;
+            const file = tracks[currentIndex];
+            audio.src = URL.createObjectURL(file);
+            currentTrackName.textContent = file.name.replace(/\.[^/.]+$/, "");
+            updatePlaylistUI();
+            playAudio();
+        }
+
+        function updatePlaylistUI() {
+            Array.from(playlist.children).forEach((li, i) => {
+                li.classList.toggle('text-purple-400', i === currentIndex);
+                li.classList.toggle('bg-purple-500/10', i === currentIndex);
+            });
+        }
+
+        function playAudio() {
+            audio.play().then(() => {
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+                musicIcon.classList.add('animate-spin');
+                musicIcon.style.animationDuration = '3s';
+            }).catch(() => {});
+        }
+
+        function pauseAudio() {
+            audio.pause();
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+            musicIcon.classList.remove('animate-spin');
+        }
+
+        playBtn.onclick = () => audio.paused ? playAudio() : pauseAudio();
+        nextBtn.onclick = () => loadTrack((currentIndex + 1) % tracks.length);
+        prevBtn.onclick = () => loadTrack((currentIndex - 1 + tracks.length) % tracks.length);
+        audio.onended = () => nextBtn.click();
+
+        audio.ontimeupdate = () => {
+            const p = (audio.currentTime / audio.duration) * 100;
+            progressBar.value = isNaN(p) ? 0 : p;
+            currentTimeEl.textContent = formatTime(audio.currentTime);
+        };
+
+        audio.onloadedmetadata = () => durationEl.textContent = formatTime(audio.duration);
+        progressBar.oninput = () => audio.currentTime = (progressBar.value / 100) * audio.duration;
+
+        function formatTime(s) {
+            const m = Math.floor(s / 60);
+            const sec = Math.floor(s % 60);
+            return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+        }
+
+        // --- 定時功能 ---
+        timerBtn.onclick = () => timerPanel.classList.toggle('hidden');
+
+        function setTimer(minutes) {
+            clearInterval(sleepTimer);
+            if (minutes === 0) {
+                remainingSeconds = 0;
+                timerStatus.classList.add('hidden');
+                timerBadge.classList.add('hidden');
+                timerBtn.classList.remove('timer-active');
+                return;
+            }
+
+            remainingSeconds = minutes * 60;
+            timerStatus.classList.remove('hidden');
+            timerBadge.classList.remove('hidden');
+            timerBtn.classList.add('timer-active');
+            
+            updateTimerDisplay();
+            sleepTimer = setInterval(() => {
+                remainingSeconds--;
+                if (remainingSeconds <= 0) {
+                    clearInterval(sleepTimer);
+                    pauseAudio();
+                    setTimer(0);
+                    alert("定時時間到，已停止播放。");
+                }
+                updateTimerDisplay();
+            }, 1000);
+            
+            setTimeout(() => timerPanel.classList.add('hidden'), 2000);
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(remainingSeconds / 60);
+            const s = remainingSeconds % 60;
+            timerStatus.textContent = `將於 ${m}:${s.toString().padStart(2, '0')} 後關機`;
+        }
+    </script>
+</body>
+</html>
