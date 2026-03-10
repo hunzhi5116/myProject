@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的私人音樂盒</title>
+    <meta name="mobile-web-app-capable" content="yes">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            min-height: 100vh;
+            color: white;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(15px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        #playlist::-webkit-scrollbar { width: 4px; }
+        #playlist::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+        input[type="range"] { accent-color: #a855f7; }
+        .btn-active:active { transform: scale(0.95); }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+    <div class="glass-card w-full max-w-md p-8 shadow-2xl">
+        <h1 class="text-2xl font-bold text-center mb-6 text-purple-400 tracking-tight">私人音樂播放器</h1>
+        
+        <div class="mb-6 text-center">
+            <label class="block text-sm font-medium mb-3 text-gray-400 text-center">請點擊按鈕選取 MP3 檔案</label>
+            
+            <!-- 終極解決方案：完全不設 accept 屬性，並加入 webkit 屬性嘗試 -->
+            <input type="file" id="fileInput" 
+                   multiple 
+                   class="block w-full text-sm text-gray-400
+                          file:mr-4 file:py-3 file:px-6
+                          file:rounded-full file:border-0
+                          file:text-sm file:font-bold
+                          file:bg-purple-600 file:text-white
+                          hover:file:bg-purple-700 cursor-pointer transition w-full">
+            
+            <div class="mt-4 p-4 bg-yellow-900/20 rounded-xl border border-yellow-500/20 text-left">
+                <p class="text-[11px] text-yellow-300 leading-relaxed">
+                    <span class="font-bold text-white">小米手機最終對策：</span><br>
+                    1. 若點擊後只出現「錄音機」，請點擊旁邊空白處關閉選單。<br>
+                    2. 前往 <span class="text-white">「設定」 > 「應用程式管理」 > 「Chrome」</span>。<br>
+                    3. 點擊 <span class="text-white">「權限」</span>，將 <span class="text-white">「檔案與媒體」</span> 權限設為 <span class="text-white">「僅允許管理媒體檔案」</span> 以外的選項（若有）。<br>
+                    4. 開啟手機內的 <span class="text-white">「檔案管理員」</span> App，長按 MP3 檔案選取後，點擊「分享」，看看是否能分享給 Chrome 開啟（某些版本支援）。
+                </p>
+            </div>
+        </div>
+
+        <div id="playerUI" class="text-center">
+            <div id="disk" class="relative w-32 h-32 mx-auto mb-6 bg-purple-900/30 rounded-full flex items-center justify-center border-4 border-purple-500/20 shadow-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-purple-500" id="musicIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+            </div>
+            
+            <div id="currentTrackName" class="text-lg font-bold mb-4 truncate px-2 text-gray-100">尚未載入音樂</div>
+            
+            <input type="range" id="progressBar" value="0" step="0.1" class="w-full h-1.5 mb-2 rounded-lg cursor-pointer bg-gray-700 appearance-none">
+            <div class="flex justify-between text-xs font-mono text-gray-500 mb-6">
+                <span id="currentTime">00:00</span>
+                <span id="duration">00:00</span>
+            </div>
+
+            <div class="flex items-center justify-evenly mb-6">
+                <button id="prevBtn" class="text-gray-400 hover:text-white btn-active">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                </button>
+                <button id="playBtn" class="bg-purple-500 text-white p-4 rounded-full shadow-lg hover:bg-purple-600 btn-active">
+                    <svg id="playIcon" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                    <svg id="pauseIcon" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+                </button>
+                <button id="nextBtn" class="text-gray-400 hover:text-white btn-active">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="playlistContainer" class="mt-4 pt-4 border-t border-white/10 hidden">
+            <div class="flex justify-between items-center mb-2 px-1">
+                <span class="text-xs text-gray-500 font-bold uppercase tracking-wider">播放清單</span>
+                <span id="trackStats" class="text-[10px] text-purple-400 bg-purple-900/30 px-2 py-0.5 rounded-full">0 首</span>
+            </div>
+            <ul id="playlist" class="max-h-40 overflow-y-auto space-y-1"></ul>
+        </div>
+
+        <audio id="audioElement" class="hidden"></audio>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const playlist = document.getElementById('playlist');
+        const playlistContainer = document.getElementById('playlistContainer');
+        const audio = document.getElementById('audioElement');
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const currentTrackName = document.getElementById('currentTrackName');
+        const progressBar = document.getElementById('progressBar');
+        const currentTimeEl = document.getElementById('currentTime');
+        const durationEl = document.getElementById('duration');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const musicIcon = document.getElementById('musicIcon');
+        const trackStats = document.getElementById('trackStats');
+
+        let tracks = [];
+        let currentIndex = 0;
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            // 改在選取後進行過濾，確保使用者在檔案管理員選什麼都可以，但只有音樂會進清單
+            const audioFiles = files.filter(f => 
+                f.type.includes('audio') || 
+                f.name.toLowerCase().endsWith('.mp3') || 
+                f.name.toLowerCase().endsWith('.m4a') || 
+                f.name.toLowerCase().endsWith('.wav')
+            );
+            
+            if (audioFiles.length === 0) {
+                alert("未偵測到音訊檔案，請確認選取的檔案格式。");
+                return;
+            }
+
+            tracks = audioFiles;
+            trackStats.textContent = `${tracks.length} 首`;
+            playlist.innerHTML = '';
+            playlistContainer.classList.remove('hidden');
+
+            tracks.forEach((track, index) => {
+                const li = document.createElement('li');
+                li.className = "cursor-pointer hover:bg-white/10 p-2.5 rounded-xl text-sm text-gray-400 truncate transition-all duration-200 border border-transparent";
+                li.textContent = `${index + 1}. ${track.name.replace(/\.[^/.]+$/, "")}`;
+                li.onclick = () => loadTrack(index);
+                playlist.appendChild(li);
+            });
+
+            loadTrack(0);
+        });
+
+        function loadTrack(index) {
+            if (index < 0 || index >= tracks.length) return;
+            currentIndex = index;
+            const file = tracks[currentIndex];
+            const url = URL.createObjectURL(file);
+            audio.src = url;
+            currentTrackName.textContent = file.name.replace(/\.[^/.]+$/, "");
+            
+            Array.from(playlist.children).forEach((li, i) => {
+                if (i === currentIndex) {
+                    li.classList.add('text-purple-400', 'bg-purple-500/10', 'border-purple-500/20');
+                    li.classList.remove('text-gray-400');
+                } else {
+                    li.classList.remove('text-purple-400', 'bg-purple-500/10', 'border-purple-500/20');
+                    li.classList.add('text-gray-400');
+                }
+            });
+
+            playAudio();
+        }
+
+        function playAudio() {
+            if (!audio.src) return;
+            audio.play().then(() => {
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+                musicIcon.classList.add('animate-spin');
+                musicIcon.style.animationDuration = '8s';
+            }).catch(err => console.log("等待手動播放"));
+        }
+
+        function pauseAudio() {
+            audio.pause();
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+            musicIcon.classList.remove('animate-spin');
+        }
+
+        playBtn.addEventListener('click', () => {
+            if (audio.paused) playAudio();
+            else pauseAudio();
+        });
+
+        audio.addEventListener('timeupdate', () => {
+            const progress = (audio.currentTime / audio.duration) * 100;
+            progressBar.value = isNaN(progress) ? 0 : progress;
+            currentTimeEl.textContent = formatTime(audio.currentTime);
+        });
+
+        audio.addEventListener('loadedmetadata', () => {
+            durationEl.textContent = formatTime(audio.duration);
+        });
+
+        progressBar.addEventListener('input', () => {
+            audio.currentTime = (progressBar.value / 100) * audio.duration;
+        });
+
+        prevBtn.addEventListener('click', () => loadTrack(currentIndex - 1 < 0 ? tracks.length - 1 : currentIndex - 1));
+        nextBtn.addEventListener('click', () => loadTrack((currentIndex + 1) % tracks.length));
+        audio.addEventListener('ended', () => nextBtn.click());
+
+        function formatTime(seconds) {
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60);
+            return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>
